@@ -14,7 +14,7 @@ export function LandingHeader() {
           <span className="text-xl font-semibold text-foreground">InvoiceFlow</span>
         </Link>
 
-        <Link href="/dashboard">
+        <Link href="/login">
           <Button
             variant="ghost"
             className="text-foreground hover:text-foreground hover:bg-[hsl(189,94%,63%)]/10 transition-all duration-300"
