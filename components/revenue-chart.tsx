@@ -15,11 +15,11 @@ const data = [
 const chartConfig = {
   receita: {
     label: "Receita",
-    color: "hsl(var(--chart-1))",
+    color: "#10b981",
   },
   despesas: {
     label: "Despesas",
-    color: "hsl(var(--chart-2))",
+    color: "#ef4444",
   },
 }
 
@@ -28,16 +28,16 @@ export function RevenueChart() {
     <ChartContainer config={chartConfig} className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#4F4F4F" vertical={false} />
           <XAxis
             dataKey="month"
-            stroke="hsl(var(--muted-foreground))"
+            stroke="(var(--muted-foreground))"
             fontSize={12}
             tickLine={false}
             axisLine={false}
           />
           <YAxis
-            stroke="hsl(var(--muted-foreground))"
+            stroke="(var(--muted-foreground))"
             fontSize={12}
             tickLine={false}
             axisLine={false}
