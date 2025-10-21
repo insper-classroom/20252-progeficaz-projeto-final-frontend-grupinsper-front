@@ -4,7 +4,6 @@ import { LandingHeader } from "@/components/landing/landing-header"
 import { HeroSection } from "@/components/landing/hero-section"
 import { ProblemSection } from "@/components/landing/problem-section"
 import { SolutionSection } from "@/components/landing/solution-section"
-import { FeaturesSection } from "@/components/landing/features-section"
 import { StatsSection } from "@/components/landing/stats-section"
 import { CtaSection } from "@/components/landing/cta-section"
 import { useEffect, useState } from "react"
@@ -33,7 +32,6 @@ export default function LandingPage() {
       <HeroSection />
       <ProblemSection />
       <SolutionSection />
-      <FeaturesSection />
       <StatsSection />
       <CtaSection />
     </div>
