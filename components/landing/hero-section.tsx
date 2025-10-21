@@ -14,7 +14,7 @@ export function HeroSection() {
         </p>
 
         <div className="flex flex-col items-center gap-4">
-          <Link href="/dashboard">
+          <Link href="/login">
             <Button
               size="lg"
               className="bg-[hsl(189,94%,63%)] hover:bg-[hsl(189,94%,58%)] text-black font-semibold px-8 py-6 text-lg h-auto transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[hsl(189,94%,63%)]/30"
