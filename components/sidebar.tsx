@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 const menuItems = [
   {
     name: "Dashboard",
-    href: "/",
+    href: "/dashboard",
     icon: BarChart3,
   },
   {
