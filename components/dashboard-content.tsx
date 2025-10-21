@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { RevenueChart } from "./revenue-chart"
 import { CategoryChart } from "./category-chart"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { NovaFaturaModal } from "./nova-fatura-modal"
 
 const metrics = [
   {
@@ -96,7 +97,9 @@ export function DashboardContent() {
               <SelectItem value="ultimos-3">Últimos 3 meses</SelectItem>
             </SelectContent>
           </Select>
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">+ Nova Fatura</Button>
+          <NovaFaturaModal>
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">+ Nova Fatura</Button>
+          </NovaFaturaModal>
         </div>
       </div>
 
