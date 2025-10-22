@@ -110,7 +110,7 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
                     <Upload className="h-8 w-8 text-primary" />
                   </div>
                   <div className="space-y-2">
-                    <p className="text-lg font-medium text-foreground">Arraste e solte seu extrao aqui</p>
+                    <p className="text-lg font-medium text-foreground">Arraste e solte seu extrato aqui</p>
                     <p className="text-sm text-muted-foreground">ou clique para selecionar um arquivo</p>
                   </div>
                   <p className="text-xs text-muted-foreground">PDF (máx. 10MB)</p>
