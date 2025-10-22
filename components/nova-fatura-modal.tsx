@@ -82,7 +82,7 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[600px] bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">Nova Fatura</DialogTitle>
+          <DialogTitle className="text-2xl font-bold text-foreground">Novo Extrato</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
           {errorMessage && (
@@ -110,7 +110,7 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
                     <Upload className="h-8 w-8 text-primary" />
                   </div>
                   <div className="space-y-2">
-                    <p className="text-lg font-medium text-foreground">Arraste e solte sua fatura aqui</p>
+                    <p className="text-lg font-medium text-foreground">Arraste e solte seu extrao aqui</p>
                     <p className="text-sm text-muted-foreground">ou clique para selecionar um arquivo</p>
                   </div>
                   <p className="text-xs text-muted-foreground">PDF (máx. 10MB)</p>
@@ -164,7 +164,7 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
               disabled={!selectedFile}
               className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
             >
-              Enviar Fatura
+              Enviar Extrato
             </Button>
           </div>
         </form>
