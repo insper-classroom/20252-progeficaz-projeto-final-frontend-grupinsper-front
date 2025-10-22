@@ -98,7 +98,7 @@ export function DashboardContent() {
             </SelectContent>
           </Select>
           <NovaFaturaModal>
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">+ Nova Fatura</Button>
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">+ Novo Extrato</Button>
           </NovaFaturaModal>
         </div>
       </div>
