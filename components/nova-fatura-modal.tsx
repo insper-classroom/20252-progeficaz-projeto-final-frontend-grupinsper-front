@@ -14,7 +14,7 @@ interface NovaFaturaModalProps {
 
 export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
   const [open, setOpen] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]) // Mudou de File | null para File[]
   const [isDragging, setIsDragging] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -23,13 +23,20 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && isPdfFile(file)) {
-      setSelectedFile(file)
+    const files = Array.from(e.target.files || [])
+    const pdfFiles = files.filter(isPdfFile)
+    
+    if (pdfFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...pdfFiles]) // Adiciona aos arquivos existentes
       setErrorMessage(null)
-    } else if (file) {
-      setErrorMessage("Por favor, selecione apenas arquivos PDF")
     }
+    
+    if (pdfFiles.length < files.length) {
+      setErrorMessage("Alguns arquivos foram ignorados. Apenas PDFs são aceitos.")
+    }
+    
+    // Limpa o input para permitir selecionar os mesmos arquivos novamente
+    e.target.value = ""
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -45,27 +52,38 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file && isPdfFile(file)) {
-      setSelectedFile(file)
+    
+    const files = Array.from(e.dataTransfer.files)
+    const pdfFiles = files.filter(isPdfFile)
+    
+    if (pdfFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...pdfFiles])
       setErrorMessage(null)
-    } else if (file) {
-      setErrorMessage("Por favor, arraste apenas arquivos PDF")
+    }
+    
+    if (pdfFiles.length < files.length) {
+      setErrorMessage("Alguns arquivos foram ignorados. Apenas PDFs são aceitos.")
     }
   }
 
-  const handleRemoveFile = () => {
-    setSelectedFile(null)
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
     setErrorMessage(null)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (selectedFile) {
-      console.log("[v0] Uploading file:", selectedFile.name)
-      // Handle file upload
+  const handleRemoveAll = () => {
+    setSelectedFiles([])
+    setErrorMessage(null)
+  }
+
+  const handleSubmit = () => {
+    if (selectedFiles.length > 0) {
+      console.log(`[v0] Uploading ${selectedFiles.length} file(s):`, selectedFiles.map(f => f.name))
+      // Aqui você processa todos os arquivos
+      // selectedFiles.forEach(file => { ... })
+      
       setOpen(false)
-      setSelectedFile(null)
+      setSelectedFiles([])
     }
   }
 
@@ -77,25 +95,30 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
   }
 
+  const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0)
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] bg-card border-border">
+      <DialogContent className="sm:max-w-[600px] bg-card border-border max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">Novo Extrato</DialogTitle>
+          <DialogTitle className="text-2xl font-bold text-foreground">
+            Novo Extrato {selectedFiles.length > 0 && `(${selectedFiles.length} arquivo${selectedFiles.length > 1 ? 's' : ''})`}
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+        <div className="space-y-6 mt-4 flex-1 overflow-hidden flex flex-col">
           {errorMessage && (
             <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{errorMessage}</AlertDescription>
             </Alert>
           )}
+          
           <div
-            className={`relative border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+            className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               isDragging
                 ? "border-primary bg-primary/5"
-                : selectedFile
+                : selectedFiles.length > 0
                   ? "border-primary/50 bg-primary/5"
                   : "border-border hover:border-primary/50"
             }`}
@@ -103,56 +126,102 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {!selectedFile ? (
-              <>
-                <div className="flex flex-col items-center gap-4">
-                  <div className="rounded-full bg-primary/10 p-4">
-                    <Upload className="h-8 w-8 text-primary" />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-lg font-medium text-foreground">Arraste e solte seu extrato aqui</p>
-                    <p className="text-sm text-muted-foreground">ou clique para selecionar um arquivo</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">PDF (máx. 10MB)</p>
-                </div>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileSelect}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </>
-            ) : (
-              <div className="flex items-center justify-between gap-4 p-4 bg-background rounded-lg">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="rounded-lg bg-primary/10 p-2 flex-shrink-0">
-                    <FileText className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0 text-left">
-                    <p className="font-medium text-foreground truncate">{selectedFile.name}</p>
-                    <p className="text-sm text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
-                  </div>
-                </div>
+            <div className="flex flex-col items-center gap-4">
+              <div className="rounded-full bg-primary/10 p-4">
+                <Upload className="h-8 w-8 text-primary" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-lg font-medium text-foreground">
+                  {selectedFiles.length > 0 ? "Adicionar mais extratos" : "Arraste e solte seus extratos aqui"}
+                </p>
+                <p className="text-sm text-muted-foreground">ou clique para selecionar arquivos</p>
+              </div>
+              <p className="text-xs text-muted-foreground">PDF • Múltiplos arquivos permitidos</p>
+            </div>
+            <input
+              type="file"
+              accept=".pdf"
+              multiple
+              onChange={handleFileSelect}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+          </div>
+
+          {selectedFiles.length > 0 && (
+            <div 
+              className="space-y-3 flex-1 overflow-y-auto pr-2"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(6, 182, 212, 0.3) transparent'
+              }}
+            >
+              <style>{`
+                div::-webkit-scrollbar {
+                  width: 8px;
+                }
+                div::-webkit-scrollbar-track {
+                  background: transparent;
+                }
+                div::-webkit-scrollbar-thumb {
+                  background: rgba(6, 182, 212, 0.3);
+                  border-radius: 4px;
+                }
+                div::-webkit-scrollbar-thumb:hover {
+                  background: rgba(6, 182, 212, 0.5);
+                }
+              `}</style>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">
+                  Arquivos selecionados • Total: {formatFileSize(totalSize)}
+                </p>
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
-                  onClick={handleRemoveFile}
-                  className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                  size="sm"
+                  onClick={handleRemoveAll}
+                  className="text-muted-foreground hover:text-destructive h-8"
                 >
-                  <X className="h-4 w-4" />
+                  Limpar todos
                 </Button>
               </div>
-            )}
-          </div>
+              
+              <div className="space-y-2">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${index}`}
+                    className="flex items-center justify-between gap-4 p-3 bg-background rounded-lg border border-border"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="rounded-lg bg-primary/10 p-2 flex-shrink-0">
+                        <FileText className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className="font-medium text-foreground truncate text-sm">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveFile(index)}
+                      className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive h-8 w-8"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               type="button"
               variant="outline"
               onClick={() => {
                 setOpen(false)
-                setSelectedFile(null)
+                setSelectedFiles([])
                 setErrorMessage(null)
               }}
               className="border-border"
@@ -160,14 +229,14 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
               Cancelar
             </Button>
             <Button
-              type="submit"
-              disabled={!selectedFile}
+              onClick={handleSubmit}
+              disabled={selectedFiles.length === 0}
               className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
             >
-              Enviar Extrato
+              Enviar {selectedFiles.length > 0 && `(${selectedFiles.length})`}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   )
