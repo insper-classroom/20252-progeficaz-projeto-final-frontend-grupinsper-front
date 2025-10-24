@@ -1,37 +1,67 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import { FileText, Download } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RevenueChart } from "./revenue-chart"
 import { CategoryChart } from "./category-chart"
+import { getFaturasDoUsuario } from "@/lib/api" // <-- IMPORTAR API
 
-const invoices = [
-  {
-    id: "INV-2024-089",
-    company: "Empresa Alpha",
-    amount: "R$ 12.500",
-    date: "15 Out 2025",
-    status: "Pago",
-  },
-  {
-    id: "INV-2024-088",
-    company: "Beta Solutions",
-    amount: "R$ 8.900",
-    date: "12 Out 2025",
-    status: "Pendente",
-  },
-  {
-    id: "INV-2024-087",
-    company: "Gamma Corp",
-    amount: "R$ 15.200",
-    date: "10 Out 2025",
-    status: "Pago",
-  },
-]
+type Fatura = {
+  _id: string
+  user_id?: string
+  mes_ano?: string
+  fatura?: string
+  extratos?: any[]
+  valor?: number
+  status?: string
+  created_at?: string
+}
 
 export function FaturasContent() {
+  const USER_ID = "68f3859b16ccde5a56ca370d"
+  const [faturas, setFaturas] = useState<Fatura[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    async function carregar() {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await getFaturasDoUsuario(USER_ID)
+        console.log("Faturas recebidas:", data)
+        if (!mounted) return
+        setFaturas(Array.isArray(data) ? data : [])
+      } catch (err: any) {
+        console.error("Erro ao buscar faturas:", err)
+        setError(err?.message ?? "Erro ao buscar faturas")
+        setFaturas([])
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    carregar()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  // prepara lista recente com shape esperado pelo layout
+  const recentInvoices = useMemo(() => {
+    if (!faturas) return []
+    return faturas.slice(0, 6).map((f) => ({
+      id: f._id,
+      company: f.fatura ?? "Cliente",
+      amount: typeof f.valor === "number" ? `R$ ${f.valor.toLocaleString()}` : `R$ ${(f.extratos?.length ?? 0) * 100}`,
+      date: f.mes_ano ?? f.created_at ?? "—",
+      status: (f.status ?? "Pendente"),
+    }))
+  }, [faturas])
+
   return (
     <div className="p-8 space-y-8">
       {/* Charts Section */}
@@ -43,7 +73,8 @@ export function FaturasContent() {
               <p className="text-sm text-muted-foreground">Últimos 6 meses</p>
             </div>
           </div>
-          <RevenueChart />
+          {/* passe as faturas reais para o chart se ele aceitar data */}
+          <RevenueChart data={faturas ?? []} />
         </Card>
 
         <Card className="p-6 bg-card border-border">
@@ -51,7 +82,7 @@ export function FaturasContent() {
             <h3 className="text-lg font-semibold text-foreground">Distribuição por Categoria</h3>
             <p className="text-sm text-muted-foreground">Receita por tipo</p>
           </div>
-          <CategoryChart />
+          <CategoryChart data={faturas ?? []} />
         </Card>
       </div>
 
@@ -69,7 +100,11 @@ export function FaturasContent() {
         </div>
 
         <div className="space-y-4">
-          {invoices.map((invoice) => (
+          {loading && <div>Carregando faturas...</div>}
+          {error && <div className="text-red-500">Erro: {error}</div>}
+          {!loading && !error && recentInvoices.length === 0 && <div>Nenhuma fatura encontrada.</div>}
+
+          {recentInvoices.map((invoice) => (
             <div
               key={invoice.id}
               className="flex items-center justify-between p-4 rounded-lg bg-background/50 hover:bg-background transition-colors"
@@ -106,3 +141,4 @@ export function FaturasContent() {
     </div>
   )
 }
+
