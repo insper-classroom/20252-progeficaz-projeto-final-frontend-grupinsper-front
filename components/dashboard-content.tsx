@@ -7,6 +7,7 @@ import { RevenueChart } from "./revenue-chart"
 import { CategoryChart } from "./category-chart"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { NovaFaturaModal } from "./nova-fatura-modal"
+import { useState } from "react"
 
 const metrics = [
   {
@@ -78,7 +79,26 @@ const recentInvoices = [
 ]
 
 export function DashboardContent() {
-  return (
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles(prev => [...prev, ...Array.from(e.target.files!)])
+    }
+  }
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleProcessFiles = async () => {
+    for (const file of selectedFiles) {
+      console.log('Processando:', file.name)
+    }
+    setSelectedFiles([])
+  }
+
+ return (
     <div className="p-8 space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -98,11 +118,11 @@ export function DashboardContent() {
             </SelectContent>
           </Select>
           <NovaFaturaModal>
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">+ Nova Fatura</Button>
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">+ Novo Extrato</Button>
           </NovaFaturaModal>
         </div>
       </div>
-
+      
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metrics.map((metric) => {
