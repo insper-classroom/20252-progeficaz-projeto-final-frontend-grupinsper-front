@@ -9,16 +9,35 @@ import { RevenueChart } from "./revenue-chart"
 import { CategoryChart } from "./category-chart"
 import { getFaturasDoUsuario } from "@/lib/api" // <-- IMPORTAR API
 
+// --- DEFINIÇÃO DE TIPOS COM BASE NO SEU MONGODB ---
+// (Isso ajuda o TypeScript a entender seus dados)
+type Transferencia = {
+  valor: number
+  data: string
+  origem: string
+  categoria: string
+}
+
+type ExtratoItem = {
+  banco: string
+  _id: string
+  transferencias: Transferencia[]
+}
+
+// Seu 'extratos' é um array de arrays de objetos: ExtratoItem[][]
 type Fatura = {
   _id: string
   user_id?: string
+  fatura?: string // Nome da fatura (ex: "Teste")
+  fatura2?: string // Outro nome (ex: "Teste2")
+  fatura3?: string // Outro nome (ex: "Teste3")
   mes_ano?: string
-  fatura?: string
-  extratos?: any[]
-  valor?: number
-  status?: string
   created_at?: string
+  status?: string
+  data_criacao?: string // Importante
+  extratos?: ExtratoItem[][]
 }
+// --- FIM DOS TIPOS ---
 
 export function FaturasContent() {
   const USER_ID = "68f3859b16ccde5a56ca370d"
@@ -50,17 +69,59 @@ export function FaturasContent() {
     }
   }, [])
 
+  // ***** INÍCIO DA CORREÇÃO *****
   // prepara lista recente com shape esperado pelo layout
   const recentInvoices = useMemo(() => {
     if (!faturas) return []
-    return faturas.slice(0, 6).map((f) => ({
-      id: f._id,
-      company: f.fatura ?? "Cliente",
-      amount: typeof f.valor === "number" ? `R$ ${f.valor.toLocaleString()}` : `R$ ${(f.extratos?.length ?? 0) * 100}`,
-      date: f.mes_ano ?? f.created_at ?? "—",
-      status: (f.status ?? "Pendente"),
-    }))
+
+    // Helper para formatar BRL
+    const formatBRL = (val: number) =>
+      val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+
+    return faturas.slice(0, 6).map((f) => {
+      // 1. Calcular o valor total da fatura
+      let valorTotal = 0
+      const todosExtratos = f.extratos?.flat(2) ?? []
+      todosExtratos.forEach((extrato) => {
+        extrato?.transferencias?.forEach((t) => {
+          valorTotal += t.valor
+        })
+      })
+
+      // 2. Achar nome da fatura (fatura, fatura2, etc)
+      const nomeFatura = f.fatura || f.fatura2 || f.fatura3 || "Cliente"
+
+      // 3. Achar a data (Tenta data_criacao, mes_ano, ou created_at)
+      let dataFatura = "Sem data"
+      if (f.data_criacao) {
+        const dateObj = new Date(f.data_criacao)
+        if (!isNaN(dateObj.getTime())) {
+          // Verifica se a data é válida
+          dataFatura = dateObj.toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        }
+      } else if (f.mes_ano) {
+        dataFatura = f.mes_ano
+      } else if (f.created_at) {
+        dataFatura = new Date(f.created_at).toLocaleDateString("pt-BR")
+      }
+
+      // 4. Status (Não temos esse dado no DB, então será "Pendente")
+      const statusFatura = f.status ?? "Pendente"
+
+      return {
+        id: f._id,
+        company: nomeFatura,
+        amount: formatBRL(valorTotal), // Usa o valorTotal calculado
+        date: dataFatura,
+        status: statusFatura,
+      }
+    })
   }, [faturas])
+  // ***** FIM DA CORREÇÃO *****
 
   return (
     <div className="p-8 space-y-8">
@@ -69,7 +130,9 @@ export function FaturasContent() {
         <Card className="lg:col-span-2 p-6 bg-card border-border">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-semibold text-foreground">Receita vs Despesas</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                Receita vs Despesas
+              </h3>
               <p className="text-sm text-muted-foreground">Últimos 6 meses</p>
             </div>
           </div>
@@ -79,7 +142,9 @@ export function FaturasContent() {
 
         <Card className="p-6 bg-card border-border">
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-foreground">Distribuição por Categoria</h3>
+            <h3 className="text-lg font-semibold text-foreground">
+              Distribuição por Categoria
+            </h3>
             <p className="text-sm text-muted-foreground">Receita por tipo</p>
           </div>
           <CategoryChart data={faturas ?? []} />
@@ -90,10 +155,17 @@ export function FaturasContent() {
       <Card className="p-6 bg-card border-border">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-lg font-semibold text-foreground">Faturas Recentes</h3>
-            <p className="text-sm text-muted-foreground">Últimas transações registradas</p>
+            <h3 className="text-lg font-semibold text-foreground">
+              Faturas Recentes
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Últimas transações registradas
+            </p>
           </div>
-          <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+          <Button
+            variant="ghost"
+            className="text-muted-foreground hover:text-foreground"
+          >
             <Download className="w-4 h-4 mr-2" />
             Exportar
           </Button>
@@ -102,7 +174,9 @@ export function FaturasContent() {
         <div className="space-y-4">
           {loading && <div>Carregando faturas...</div>}
           {error && <div className="text-red-500">Erro: {error}</div>}
-          {!loading && !error && recentInvoices.length === 0 && <div>Nenhuma fatura encontrada.</div>}
+          {!loading && !error && recentInvoices.length === 0 && (
+            <div>Nenhuma fatura encontrada.</div>
+          )}
 
           {recentInvoices.map((invoice) => (
             <div
@@ -115,7 +189,10 @@ export function FaturasContent() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-foreground">{invoice.id}</span>
+                    {/* ***** CORREÇÃO DE CONSISTÊNCIA VISUAL ***** */}
+                    <span className="font-semibold text-foreground">
+                      {invoice.company}
+                    </span>
                     <Badge
                       variant={invoice.status === "Pago" ? "default" : "secondary"}
                       className={
@@ -127,11 +204,16 @@ export function FaturasContent() {
                       {invoice.status}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">{invoice.company}</p>
+                  <p className="text-sm text-muted-foreground">
+                    ID: {invoice.id}
+                  </p>
+                  {/* ***** FIM DA CORREÇÃO VISUAL ***** */}
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-semibold text-foreground">{invoice.amount}</p>
+                <p className="font-semibold text-foreground">
+                  {invoice.amount}
+                </p>
                 <p className="text-sm text-muted-foreground">{invoice.date}</p>
               </div>
             </div>

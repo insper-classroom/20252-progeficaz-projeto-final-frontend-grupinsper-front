@@ -1,9 +1,10 @@
+// Em components/origin-chart.tsx
 "use client"
 
-import { useMemo } from "react" // <-- 1. Importar useMemo
+import { useMemo } from "react"
 import { PieChart, Pie, ResponsiveContainer, Cell } from "recharts"
 
-// --- 2. Definir os tipos de dados (copie do seu dashboard-content.tsx) ---
+// --- Definir os tipos de dados ---
 type Transferencia = {
   valor: number
   data: string
@@ -18,67 +19,62 @@ type ExtratoItem = {
 type Fatura = {
   _id: string
   extratos?: ExtratoItem[][]
-  // ... outros campos que você possa ter
 }
 // --- Fim dos Tipos ---
 
-// 3. Definir as cores que você usava
+// ***** INÍCIO DA CORREÇÃO *****
+// Cores (Paleta Secundária - "Rotacionada")
+// Começa com chart-3 para ser diferente do gráfico de Categoria
 const COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)", // Adicionei mais cores se precisar
+  "var(--chart-3)", // Laranja/Amarelo (cor principal)
+  "var(--chart-4)", // Verde
+  "var(--chart-5)", // Roxo/Rosa
+  "var(--chart-1)", // Ciano (cor secundária)
+  "var(--chart-2)", // Roxo (cor secundária)
 ]
+// ***** FIM DA CORREÇÃO *****
 
-// 4. Aceitar a prop 'data' com os tipos corretos
-export function CategoryChart({ data: faturas }: { data: Fatura[] }) {
+export function OriginChart({ data: faturas }: { data: Fatura[] }) {
   
-  // 5. Processar os dados reais com useMemo
   const processedData = useMemo(() => {
     if (!faturas || faturas.length === 0) {
       return []
     }
+    
+    const originMap = new Map<string, number>()
 
-    const categoryMap = new Map<string, number>()
-
-    // Iterar por todas as faturas, extratos e transações
     faturas.forEach((f) => {
       const todosExtratos = f.extratos?.flat(2) ?? []
       todosExtratos.forEach((extrato) => {
         extrato?.transferencias?.forEach((t) => {
-          // Somar apenas RECEITAS (valores positivos)
           if (t && t.valor > 0) {
-            const category = t.categoria || "Outros" // Usar "Outros" se a categoria for nula
-            const currentTotal = categoryMap.get(category) || 0
-            categoryMap.set(category, currentTotal + t.valor)
+            const origin = t.origem || "Outra Origem" 
+            const currentTotal = originMap.get(origin) || 0
+            originMap.set(origin, currentTotal + t.valor)
           }
         })
       })
     })
 
-    // Converter o Map para o formato que o gráfico espera
-    // E calcular a porcentagem
-    const totalValue = Array.from(categoryMap.values()).reduce((a, b) => a + b, 0)
+    const totalValue = Array.from(originMap.values()).reduce((a, b) => a + b, 0)
 
-    return Array.from(categoryMap.entries()).map(
+    return Array.from(originMap.entries()).map(
       ([name, value], index) => ({
         name,
         value,
-        color: COLORS[index % COLORS.length],
-        // Calcula a porcentagem para a legenda
+        color: COLORS[index % COLORS.length], // <-- Usa o novo array de cores
         percentage: totalValue === 0 ? 0 : Math.round((value / totalValue) * 100),
       }),
     )
-  }, [faturas]) // Recalcula apenas quando as 'faturas' mudarem
+  }, [faturas])
 
-  // 6. Atualizar o JSX para usar 'processedData'
+  // ... (O resto do seu JSX é o mesmo) ...
   return (
     <div className="space-y-6">
       <ResponsiveContainer width="100%" height={200}>
         <PieChart>
           <Pie
-            data={processedData} // <-- Usar dados processados
+            data={processedData}
             cx="50%"
             cy="50%"
             innerRadius={60}
@@ -89,19 +85,17 @@ export function CategoryChart({ data: faturas }: { data: Fatura[] }) {
             {processedData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={entry.color} // <-- Usar cor dinâmica
+                fill={entry.color}
                 stroke={entry.color}
               />
             ))}
           </Pie>
         </PieChart>
       </ResponsiveContainer>
-
-      {/* Legenda dinâmica */}
       <div className="space-y-3 p-4">
         {processedData.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center">
-            Sem dados de receita para exibir.
+            Sem dados de origem para exibir.
           </p>
         ) : (
           processedData.map((item) => (

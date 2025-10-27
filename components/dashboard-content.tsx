@@ -1,106 +1,178 @@
+// Em app/dashboard/dashboard-content.tsx
 "use client"
 
-import { DollarSign, FileText, Clock, TrendingUp, Download } from "lucide-react"
+import {
+  DollarSign,
+  FileText,
+  Clock,
+  TrendingUp,
+  Download,
+} from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RevenueChart } from "./revenue-chart"
 import { CategoryChart } from "./category-chart"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { OriginChart } from "./origin-chart"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { NovaFaturaModal } from "./nova-fatura-modal"
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { getFaturasDoUsuario } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
-const metrics = [
-  {
-    title: "Receita Total",
-    value: "R$ 67.000",
-    change: "+12.5% vs mês anterior",
-    icon: DollarSign,
-    trend: "up",
-  },
-  {
-    title: "Faturas Pagas",
-    value: "24",
-    change: "+8 este mês",
-    icon: FileText,
-    trend: "up",
-  },
-  {
-    title: "Pendentes",
-    value: "5",
-    change: "R$ 42.350 em aberto",
-    icon: Clock,
-    trend: "neutral",
-  },
-  {
-    title: "Taxa de Conversão",
-    value: "82.7%",
-    change: "-2.1% vs mês anterior",
-    icon: TrendingUp,
-    trend: "down",
-  },
-]
-
-const recentInvoices = [
-  {
-    id: "INV-2024-089",
-    company: "Empresa Alpha",
-    amount: "R$ 12.500",
-    date: "15 Out 2025",
-    status: "Pago" as const,
-  },
-  {
-    id: "INV-2024-088",
-    company: "Beta Solutions",
-    amount: "R$ 8.900",
-    date: "12 Out 2025",
-    status: "Pendente" as const,
-  },
-  {
-    id: "INV-2024-087",
-    company: "Gamma Corp",
-    amount: "R$ 15.200",
-    date: "10 Out 2025",
-    status: "Pago" as const,
-  },
-  {
-    id: "INV-2024-086",
-    company: "Delta Industries",
-    amount: "R$ 6.750",
-    date: "08 Out 2025",
-    status: "Atrasado" as const,
-  },
-  {
-    id: "INV-2024-085",
-    company: "Epsilon Tech",
-    amount: "R$ 11.300",
-    date: "05 Out 2025",
-    status: "Pago" as const,
-  },
-]
+// --- DEFINIÇÃO DE TIPOS ---
+type Transferencia = {
+  valor: number
+  data: string
+  origem: string
+  categoria: string
+}
+type ExtratoItem = {
+  banco: string
+  _id: string
+  transferencias: Transferencia[]
+}
+type Fatura = {
+  _id: string
+  user_id: string
+  fatura?: string
+  fatura2?: string
+  fatura3?: string
+  data_criacao?: string
+  extratos?: ExtratoItem[][]
+}
+// --- FIM DOS TIPOS ---
 
 export function DashboardContent() {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const USER_ID = "68f3859b16ccde5a56ca370d"
+  const [faturas, setFaturas] = useState<Fatura[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(prev => [...prev, ...Array.from(e.target.files!)])
+  // useEffect para carregarFaturas
+  useEffect(() => {
+    async function carregarFaturas() {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getFaturasDoUsuario(USER_ID);
+        setFaturas(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        console.error("Erro ao buscar faturas:", err);
+        setError(err.message || "Não foi possível carregar os dados");
+      } finally {
+        setLoading(false);
+      }
     }
-  }
+    carregarFaturas();
+  }, [USER_ID]);
 
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const handleProcessFiles = async () => {
-    for (const file of selectedFiles) {
-      console.log('Processando:', file.name)
+  // useMemo para processedMetrics
+  const processedMetrics = useMemo(() => {
+    if (!faturas || faturas.length === 0) {
+      return [
+        { title: "Receita Total", value: "R$ 0,00", change: "..." },
+        { title: "Faturas Registradas", value: "0", change: "..." },
+        { title: "Pendentes", value: "0", change: "..." },
+        { title: "Despesas Totais", value: "R$ 0,00", change: "..." },
+      ];
     }
-    setSelectedFiles([])
-  }
+    let receitaTotal = 0;
+    let despesaTotal = 0;
+    faturas.forEach((f) => {
+      const todosExtratos = f.extratos?.flat(2) ?? [];
+      todosExtratos.forEach((extrato) => {
+        extrato?.transferencias?.forEach((t) => {
+          if (t.valor > 0) {
+            receitaTotal += t.valor;
+          } else {
+            despesaTotal += t.valor;
+          }
+        });
+      });
+    });
+    const formatBRL = (val: number) =>
+      val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    return [
+      {
+        title: "Receita Total",
+        value: formatBRL(receitaTotal),
+        change: "+0% vs mês anterior",
+        icon: DollarSign,
+        trend: "up",
+      },
+      {
+        title: "Faturas Registradas",
+        value: faturas.length.toString(),
+        change: `Total de ${faturas.length} faturas`,
+        icon: FileText,
+        trend: "up",
+      },
+      {
+        title: "Pendentes",
+        value: "N/A",
+        change: "Status não disponível",
+        icon: Clock,
+        trend: "neutral",
+      },
+      {
+        title: "Despesas Totais",
+        value: formatBRL(despesaTotal),
+        change: "Total gasto",
+        icon: TrendingUp,
+        trend: "down",
+      },
+    ];
+  }, [faturas]);
 
- return (
+  // useMemo para processedRecentInvoices
+  const processedRecentInvoices = useMemo(() => {
+    if (!faturas) return [];
+    return faturas.slice(0, 5).map((f) => {
+      const nomeFatura = f.fatura || f.fatura2 || f.fatura3 || "Fatura";
+      
+      let dataFatura = "Sem data";
+      if (f.data_criacao) {
+          const dateObj = new Date(f.data_criacao);
+          if (!isNaN(dateObj.getTime())) { // Verifica se a data é válida
+              dataFatura = dateObj.toLocaleDateString("pt-BR", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+              });
+          }
+      }
+
+      let valorTotal = 0;
+      const todosExtratos = f.extratos?.flat(2) ?? [];
+      todosExtratos.forEach((extrato) => {
+        extrato?.transferencias?.forEach((t) => {
+          valorTotal += t.valor;
+        });
+      });
+      const statusFatura = "Pendente";
+      return {
+        id: f._id,
+        company: nomeFatura,
+        amount: valorTotal.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }),
+        date: dataFatura,
+        status: statusFatura as "Pago" | "Pendente" | "Atrasado",
+      };
+    });
+  }, [faturas]);
+
+  return (
     <div className="p-8 space-y-8">
-      {/* Header */}
+      
+      {/* ***** 1. SEÇÃO DO HEADER RESTAURADA ***** */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
@@ -122,71 +194,122 @@ export function DashboardContent() {
           </NovaFaturaModal>
         </div>
       </div>
-      
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {metrics.map((metric) => {
-          const Icon = metric.icon
-          return (
-            <Card key={metric.title} className="p-6 bg-card border-border">
-              <div className="flex items-start justify-between mb-4">
-                <span className="text-sm text-muted-foreground">{metric.title}</span>
-                <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-accent" />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-3xl font-bold text-foreground">{metric.value}</p>
-                <p
-                  className={cn(
-                    "text-sm flex items-center gap-1",
-                    metric.trend === "up"
-                      ? "text-primary"
-                      : metric.trend === "down"
-                        ? "text-muted-foreground"
-                        : "text-muted-foreground",
-                  )}
-                >
-                  {metric.trend === "up" && "↗"}
-                  {metric.trend === "down" && "↘"}
-                  {metric.change}
-                </p>
-              </div>
-            </Card>
-          )
-        })}
-      </div>
+      {/* ***** FIM DA SEÇÃO 1 ***** */}
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 p-6 bg-card border-border">
+
+      {/* ***** 2. SEÇÃO METRICS GRID RESTAURADA ***** */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {loading ? (
+          // Mostra cartões de "Carregando..."
+          Array.from({ length: 4 }).map((_, index) => (
+            <Card
+              key={index}
+              className="p-6 bg-card border-border animate-pulse"
+            >
+              <div className="h-4 bg-muted rounded w-3/4 mb-4"></div>
+              <div className="h-8 bg-muted rounded w-1/2 mb-2"></div>
+              <div className="h-4 bg-muted rounded w-1/3"></div>
+            </Card>
+          ))
+        ) : (
+          // Mostra os dados processados
+          processedMetrics.map((metric) => {
+            const Icon = metric.icon
+            return (
+              <Card key={metric.title} className="p-6 bg-card border-border">
+                <div className="flex items-start justify-between mb-4">
+                  <span className="text-sm text-muted-foreground">
+                    {metric.title}
+                  </span>
+                  <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center">
+                    <Icon className="w-5 h-5 text-accent" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-3xl font-bold text-foreground">
+                    {metric.value}
+                  </p>
+                  <p
+                    className={cn(
+                      "text-sm flex items-center gap-1",
+                      metric.trend === "up"
+                        ? "text-primary"
+                        : metric.trend === "down"
+                        ? "text-red-500"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {metric.trend === "up" && "↗"}
+                    {metric.trend === "down" && "↘"}
+                    {metric.change}
+                  </p>
+                </div>
+              </Card>
+            )
+          })
+        )}
+      </div>
+      {/* ***** FIM DA SEÇÃO 2 ***** */}
+
+
+      {/* Seção de Gráficos (Como já estava) */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Gráfico de Receita agora ocupa a linha inteira */}
+        <Card className="lg:col-span-4 p-6 bg-card border-border">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-semibold text-foreground">Receita vs Despesas</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                Receita vs Despesas
+              </h3>
               <p className="text-sm text-muted-foreground">Últimos 6 meses</p>
             </div>
-            <Button variant="ghost" size="icon" className="text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+            >
               <Download className="w-4 h-4" />
             </Button>
           </div>
-          <RevenueChart />
+          <RevenueChart data={faturas} />
         </Card>
 
-        <Card className="p-6 bg-card border-border">
+        {/* Gráfico de Categoria (Metade da linha) */}
+        <Card className="lg:col-span-2 p-6 bg-card border-border">
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-foreground">Distribuição por Categoria</h3>
-            <p className="text-sm text-muted-foreground">Receita por tipo</p>
+            <h3 className="text-lg font-semibold text-foreground">
+              Distribuição por Categoria
+            </h3>
+            <p className="text-sm text-muted-foreground">Receita por categoria</p>
           </div>
-          <CategoryChart />
+          <CategoryChart data={faturas ?? []} />
+        </Card>
+
+        {/* NOVO GRÁFICO DE ORIGEM (Outra metade da linha) */}
+        <Card className="lg:col-span-2 p-6 bg-card border-border">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-foreground">
+              Distribuição por Tipo
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Receita por tipo de transação
+            </p>
+          </div>
+          <OriginChart data={faturas ?? []} />
         </Card>
       </div>
 
-      {/* Recent Invoices Section */}
+
+      {/* ***** 3. SEÇÃO RECENT INVOICES RESTAURADA ***** */}
       <div>
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Faturas Recentes</h2>
-            <p className="text-sm text-muted-foreground">Últimas transações registradas</p>
+            <h2 className="text-xl font-semibold text-foreground">
+              Faturas Recentes
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Últimas transações registradas
+            </p>
           </div>
           <Button variant="ghost" className="text-foreground hover:bg-card">
             <Download className="w-4 h-4 mr-2" />
@@ -195,7 +318,13 @@ export function DashboardContent() {
         </div>
 
         <div className="space-y-4">
-          {recentInvoices.map((invoice, index) => (
+          {loading && <div>Carregando faturas...</div>}
+          {error && <div className="text-red-500">Erro: {error}</div>}
+          {!loading && !error && processedRecentInvoices.length === 0 && (
+            <div>Nenhuma fatura encontrada.</div>
+          )}
+
+          {processedRecentInvoices.map((invoice, index) => (
             <Card
               key={invoice.id}
               className={cn(
@@ -210,34 +339,43 @@ export function DashboardContent() {
                   </div>
                   <div>
                     <div className="flex items-center gap-3 mb-1">
-                      <span className="text-base font-semibold text-foreground">{invoice.id}</span>
+                      <span className="text-base font-semibold text-foreground">
+                        {invoice.company}
+                      </span>
                       <span
                         className={cn(
                           "px-3 py-1 rounded-full text-xs font-medium",
-                          invoice.status === "Pago" && "bg-primary/20 text-primary",
-                          invoice.status === "Pendente" && "bg-muted text-muted-foreground",
-                          invoice.status === "Atrasado" && "bg-orange-900/30 text-orange-400",
+                          invoice.status === "Pago" &&
+                            "bg-primary/20 text-primary",
+                          invoice.status === "Pendente" &&
+                            "bg-muted text-muted-foreground",
+                          invoice.status === "Atrasado" &&
+                            "bg-orange-900/30 text-orange-400",
                         )}
                       >
                         {invoice.status}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">{invoice.company}</p>
+                    <p className="text-sm text-muted-foreground">
+                      ID: {invoice.id}
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-semibold text-foreground">{invoice.amount}</p>
-                  <p className="text-sm text-muted-foreground">{invoice.date}</p>
+                  <p className="text-lg font-semibold text-foreground">
+                    {invoice.amount}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {invoice.date}
+                  </p>
                 </div>
               </div>
             </Card>
           ))}
         </div>
       </div>
+      {/* ***** FIM DA SEÇÃO 3 ***** */}
+      
     </div>
   )
-}
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ")
 }
