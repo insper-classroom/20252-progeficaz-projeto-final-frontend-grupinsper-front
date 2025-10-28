@@ -78,9 +78,8 @@ export function NovaFaturaModal({ children }: NovaFaturaModalProps) {
 
   const handleSubmit = () => {
     if (selectedFiles.length > 0) {
-      console.log(`[v0] Uploading ${selectedFiles.length} file(s):`, selectedFiles.map(f => f.name))
-      // Aqui você processa todos os arquivos
-      // selectedFiles.forEach(file => { ... })
+      console.log(`Uploading ${selectedFiles.length} file(s):`, selectedFiles.map(f => f.name))
+      // Aqui passa os pdfs para a nossa api processar
       
       setOpen(false)
       setSelectedFiles([])

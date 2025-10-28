@@ -10,7 +10,6 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "InvoiceFlow - Gestão de Faturas",
   description: "Sistema de gestão de faturas bancárias",
-  generator: "v0.app",
 }
 
 export default function RootLayout({
