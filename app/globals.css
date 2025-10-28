@@ -89,3 +89,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(6, 182, 212, 0.3) transparent;
+}
