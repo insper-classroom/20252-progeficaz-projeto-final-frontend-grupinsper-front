@@ -145,7 +145,7 @@ export function FaturasContent() {
             <h3 className="text-lg font-semibold text-foreground">
               Distribuição por Categoria
             </h3>
-            <p className="text-sm text-muted-foreground">Receita por tipo</p>
+            <p className="text-sm text-muted-foreground">Receita por Categoria</p>
           </div>
           <CategoryChart data={faturas ?? []} />
         </Card>
