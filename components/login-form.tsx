@@ -17,8 +17,7 @@ export function LoginForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Login logic will be implemented later
-    console.log("[v0] Login attempt:", { email, rememberMe })
+    console.log("Login attempt:", { email, rememberMe })
   }
 
   return (
