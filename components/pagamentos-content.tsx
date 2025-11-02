@@ -1,4 +1,3 @@
-// Em app/pagamentos/pagamentos-content.tsx
 "use client"
 
 import { DollarSign, FileText, Clock, CreditCard } from "lucide-react"
@@ -41,7 +40,6 @@ function parseDate(dateString: string): Date {
 }
 
 export function PagamentosContent() {
-  const USER_ID = "68f3859b16ccde5a56ca370d"
   const [faturas, setFaturas] = useState<Fatura[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +51,7 @@ export function PagamentosContent() {
       try {
         setLoading(true)
         setError(null)
-        const data = await getFaturasDoUsuario(USER_ID)
+        const data = await getFaturasDoUsuario()
         setFaturas(Array.isArray(data) ? data : [])
       } catch (err: any) {
         console.error("Erro ao buscar faturas:", err)
@@ -63,19 +61,24 @@ export function PagamentosContent() {
       }
     }
     carregarFaturas()
-  }, [USER_ID])
+  }, [])
 
   // --- PROCESSAR MÉTRICAS (AGORA DEPENDE DO 'view') ---
   const processedMetrics = useMemo(() => {
     if (!faturas || faturas.length === 0) {
+      
+      // ***** INÍCIO DA CORREÇÃO *****
+      // Adicione os ícones importados aqui
       return [
-        { title: "Recebido este Mês", value: "R$ 0,00", change: "..." },
-        { title: "Taxa de Sucesso", value: "N/A", change: "Dados indisponíveis" },
-        { title: "Tempo Médio", value: "N/A", change: "Dados indisponíveis" },
-        { title: "Transações", value: "0", change: "Este período" },
+        { title: "Recebido este Mês", value: "R$ 0,00", change: "...", icon: DollarSign, trend: "neutral" },
+        { title: "Taxa de Sucesso", value: "N/A", change: "Dados indisponíveis", icon: FileText, trend: "neutral" },
+        { title: "Tempo Médio", value: "N/A", change: "Dados indisponíveis", icon: Clock, trend: "neutral" },
+        { title: "Transações", value: "0", change: "Este período", icon: CreditCard, trend: "neutral" },
       ]
+      // ***** FIM DA CORREÇÃO *****
     }
 
+    // Data de referência (seus dados são de 2024)
     const today = new Date("2024-10-28T12:00:00")
     const currentMonth = today.getMonth()
     const currentYear = today.getFullYear()
@@ -86,7 +89,7 @@ export function PagamentosContent() {
       faturas.forEach((f) => {
         f.extratos?.flat(2).forEach((extrato) => {
           extrato?.transferencias?.forEach((t) => {
-            if (t && t.valor > 0) {
+            if (t && t.valor > 0) { // <-- LÓGICA DE RECEBIDOS
               const txDate = parseDate(t.data)
               if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
                 recebidoEsteMes += t.valor
@@ -103,12 +106,13 @@ export function PagamentosContent() {
         { title: "Transações", value: transacoesEsteMes.toString(), change: "Recebidas este mês", icon: CreditCard, trend: "neutral" },
       ]
     } else {
+      // Lógica para 'feitos' (despesas)
       let gastoEsteMes = 0
       let transacoesEsteMes = 0
       faturas.forEach((f) => {
         f.extratos?.flat(2).forEach((extrato) => {
           extrato?.transferencias?.forEach((t) => {
-            if (t && t.valor < 0) {
+            if (t && t.valor < 0) { // <-- LÓGICA DE FEITOS
               const txDate = parseDate(t.data)
               if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
                 gastoEsteMes += t.valor
