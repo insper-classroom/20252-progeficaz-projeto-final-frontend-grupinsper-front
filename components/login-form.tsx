@@ -123,12 +123,6 @@ export function LoginForm() {
                   Lembrar-me
                 </Label>
               </div>
-              <Link
-                href="/recuperar-senha"
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Esqueceu a senha?
-              </Link>
             </div>
             
             {/* Mensagem de Erro */}
