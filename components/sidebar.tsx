@@ -1,9 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { BarChart3, FileText, CreditCard, Calendar, LogOut, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { logoutUser } from "@/lib/api"
+import { toast } from "@/hooks/use-toast"
+import { useState } from "react"
 
 const menuItems = [
   {
@@ -30,6 +33,29 @@ const menuItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  async function handleLogout() {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
+    try {
+      await logoutUser()
+      toast({
+        title: "Você saiu da sua conta",
+        description: "Sessão encerrada com sucesso.",
+      })
+    } catch (err) {
+      // Mesmo em erro, vamos redirecionar para login para garantir saída
+      toast({
+        title: "Não foi possível encerrar a sessão",
+        description: "Tentaremos novamente quando você fizer login.",
+      })
+    } finally {
+      setIsLoggingOut(false)
+      router.push("/login")
+    }
+  }
 
   return (
     <aside className="w-64 bg-[#0f0f0f] border-r border-border flex flex-col">
@@ -67,9 +93,17 @@ export function Sidebar() {
 
       {/* Logout */}
       <div className="p-3 border-t border-border">
-        <button className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm text-muted-foreground hover:bg-secondary hover:text-foreground w-full">
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className={cn(
+            "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm w-full",
+            "text-muted-foreground hover:bg-secondary hover:text-foreground",
+            isLoggingOut && "opacity-60 cursor-not-allowed"
+          )}
+        >
           <LogOut className="w-5 h-5" />
-          <span>Sair</span>
+          <span>{isLoggingOut ? "Saindo..." : "Sair"}</span>
         </button>
       </div>
     </aside>
