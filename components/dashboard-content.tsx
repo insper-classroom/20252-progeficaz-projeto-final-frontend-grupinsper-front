@@ -1,4 +1,3 @@
-// Em app/dashboard/dashboard-content.tsx
 "use client"
 
 import {
@@ -49,7 +48,6 @@ type Fatura = {
 // --- FIM DOS TIPOS ---
 
 export function DashboardContent() {
-  const USER_ID = "68f3859b16ccde5a56ca370d"
   const [faturas, setFaturas] = useState<Fatura[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +58,7 @@ export function DashboardContent() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getFaturasDoUsuario(USER_ID);
+        const data = await getFaturasDoUsuario();
         setFaturas(Array.isArray(data) ? data : []);
       } catch (err: any) {
         console.error("Erro ao buscar faturas:", err);
@@ -70,18 +68,21 @@ export function DashboardContent() {
       }
     }
     carregarFaturas();
-  }, [USER_ID]);
+  }, []);
 
   // useMemo para processedMetrics
   const processedMetrics = useMemo(() => {
     if (!faturas || faturas.length === 0) {
+      
       return [
-        { title: "Receita Total", value: "R$ 0,00", change: "..." },
-        { title: "Faturas Registradas", value: "0", change: "..." },
-        { title: "Pendentes", value: "0", change: "..." },
-        { title: "Despesas Totais", value: "R$ 0,00", change: "..." },
+        { title: "Receita Total", value: "R$ 0,00", change: "...", icon: DollarSign, trend: "neutral" },
+        { title: "Faturas Registradas", value: "0", change: "...", icon: FileText, trend: "neutral" },
+        { title: "Pendentes", value: "0", change: "...", icon: Clock, trend: "neutral" },
+        { title: "Despesas Totais", value: "R$ 0,00", change: "...", icon: TrendingUp, trend: "neutral" },
       ];
+      
     }
+    
     let receitaTotal = 0;
     let despesaTotal = 0;
     faturas.forEach((f) => {

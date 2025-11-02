@@ -1,23 +1,53 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState } from "react" // Importado
 import Link from "next/link"
-import { ArrowLeft, Zap, Mail, Lock } from "lucide-react"
+import { useRouter } from "next/navigation" // Importado
+import { ArrowLeft, Zap, Mail, Lock, Loader2 } from "lucide-react" // Importado Loader2
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { loginUser } from "@/lib/api" // Importa a função de login da API
 
 export function LoginForm() {
+  const router = useRouter() // Hook para redirecionamento
+  
+  // Estados do formulário
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [rememberMe, setRememberMe] = useState(false)
+  // const [rememberMe, setRememberMe] = useState(false) // Removido (ver nota abaixo)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Estados de controle da API
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Login attempt:", { email, rememberMe })
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      // 1. Chama a API de login
+      // A função 'loginUser' salva o token (cookie) e o usuário (localStorage)
+      const data = await loginUser({ email, password })
+
+      // 2. SÓ PRECISA CHECAR O SUCESSO E O USUÁRIO
+      if (data.success && data.user) {
+        // 3. Redireciona para o dashboard
+        router.push("/dashboard")
+      } else {
+        // Isso pode acontecer se data.success for false
+        setError(data.message || "Resposta inesperada do servidor.")
+      }
+      
+    } catch (err: any) {
+      // Pega a mensagem de erro do backend (ex: "Email ou senha inválidos")
+      setError(err.response?.data?.message || err.message || "Erro ao fazer login")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -56,6 +86,7 @@ export function LoginForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={isLoading} // Adicionado
                   className="pl-10 bg-background/50 border-2 border-foreground/40 focus:border-cyan-500 focus:ring-cyan-500/40"
                 />
               </div>
@@ -73,6 +104,7 @@ export function LoginForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isLoading} // Adicionado
                   className="pl-10 bg-background/50 border-2 border-foreground/40 focus:border-cyan-500 focus:ring-cyan-500/40"
                 />
               </div>
@@ -83,8 +115,8 @@ export function LoginForm() {
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  // checked={rememberMe} // Removido
+                  // onCheckedChange={(checked) => setRememberMe(checked as boolean)} // Removido
                   className="border-2 border-foreground/50 focus-visible:ring-cyan-500/40 hover:border-cyan-500/70"
                 />
                 <Label htmlFor="remember" className="text-sm cursor-pointer">
@@ -98,13 +130,24 @@ export function LoginForm() {
                 Esqueceu a senha?
               </Link>
             </div>
+            
+            {/* Mensagem de Erro */}
+            {error && (
+              <p className="text-sm text-red-500 text-center">{error}</p>
+            )}
 
             {/* Submit button */}
             <Button
               type="submit"
+              disabled={isLoading} // Adicionado
               className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-medium py-6 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-cyan-500/20"
             >
-              Entrar
+              {/* Lógica de Loading */}
+              {isLoading ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                "Entrar"
+              )}
             </Button>
 
             {/* Divider */}

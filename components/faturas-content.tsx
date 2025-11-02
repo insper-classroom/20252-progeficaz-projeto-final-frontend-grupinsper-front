@@ -24,7 +24,6 @@ type ExtratoItem = {
   transferencias: Transferencia[]
 }
 
-// Seu 'extratos' é um array de arrays de objetos: ExtratoItem[][]
 type Fatura = {
   _id: string
   user_id?: string
@@ -40,7 +39,6 @@ type Fatura = {
 // --- FIM DOS TIPOS ---
 
 export function FaturasContent() {
-  const USER_ID = "68f3859b16ccde5a56ca370d"
   const [faturas, setFaturas] = useState<Fatura[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -51,7 +49,7 @@ export function FaturasContent() {
       setLoading(true)
       setError(null)
       try {
-        const data = await getFaturasDoUsuario(USER_ID)
+        const data = await getFaturasDoUsuario()
         console.log("Faturas recebidas:", data)
         if (!mounted) return
         setFaturas(Array.isArray(data) ? data : [])
@@ -69,7 +67,6 @@ export function FaturasContent() {
     }
   }, [])
 
-  // ***** INÍCIO DA CORREÇÃO *****
   // prepara lista recente com shape esperado pelo layout
   const recentInvoices = useMemo(() => {
     if (!faturas) return []
@@ -121,7 +118,6 @@ export function FaturasContent() {
       }
     })
   }, [faturas])
-  // ***** FIM DA CORREÇÃO *****
 
   return (
     <div className="p-8 space-y-8">
@@ -136,7 +132,7 @@ export function FaturasContent() {
               <p className="text-sm text-muted-foreground">Últimos 6 meses</p>
             </div>
           </div>
-          {/* passe as faturas reais para o chart se ele aceitar data */}
+          {/*  */}
           <RevenueChart data={faturas ?? []} />
         </Card>
 
@@ -189,7 +185,6 @@ export function FaturasContent() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    {/* ***** CORREÇÃO DE CONSISTÊNCIA VISUAL ***** */}
                     <span className="font-semibold text-foreground">
                       {invoice.company}
                     </span>
@@ -207,7 +202,6 @@ export function FaturasContent() {
                   <p className="text-sm text-muted-foreground">
                     ID: {invoice.id}
                   </p>
-                  {/* ***** FIM DA CORREÇÃO VISUAL ***** */}
                 </div>
               </div>
               <div className="text-right">

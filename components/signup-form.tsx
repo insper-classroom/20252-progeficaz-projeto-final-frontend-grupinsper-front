@@ -1,145 +1,107 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Zap, User, Mail, Lock } from "lucide-react"
+import { ArrowLeft, User, Phone, FileText, Mail, Lock, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { registerUser } from "@/lib/api" // Importa a função da API
 
+// O nome da função deve ser SignupForm
 export function SignupForm() {
   const router = useRouter()
   const [formData, setFormData] = useState({
-    nome: "",
+    name: "",
     email: "",
-    senha: "",
+    phone: "",
+    cpf: "",
+    password: "",
   })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // TODO: Implement signup logic
-    console.log("Signup data:", formData)
-  }
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData({ ...formData, [e.target.id]: e.target.value })
   }
 
-  // Removed CPF/Telefone/Endereço fields and formatters per request
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      // 1. Chama a API de registro
+      // Lembre-se de remover o @jwt_required() da rota POST /usuarios no backend
+      await registerUser(formData)
+      
+      // 2. Redireciona para o login
+      alert("Cadastro realizado com sucesso! Faça seu login.")
+      router.push("/login")
+
+    } catch (err: any) {
+      // Pega a mensagem de erro do backend (ex: "Email já cadastrado")
+      setError(err.response?.data?.message || err.message || "Erro ao cadastrar")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="fixed top-4 left-4 z-50">
-        <Link href="/" className="inline-flex items-center gap-2 text-foreground hover:text-cyan-400 transition-colors">
+    <div className="min-h-screen flex flex-col">
+      <div className="p-8">
+        <Link href="/login" className="inline-flex items-center gap-2 text-foreground hover:text-cyan-400 transition-colors">
           <ArrowLeft className="w-5 h-5" />
-          <span className="font-medium">Voltar</span>
+          <span className="font-medium">Voltar para Login</span>
         </Link>
       </div>
 
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex justify-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-rose-500/20 mb-6">
-              <Zap className="w-8 h-8 text-foreground" />
+      <div className="flex-1 flex items-center justify-center px-4 pb-16">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold mb-2">Crie sua conta</h1>
+            <p className="text-muted-foreground">Preencha os dados para se cadastrar</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Campos: name, email, phone, cpf, password */}
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome Completo</Label>
+              <Input id="name" placeholder="Seu nome" required disabled={isLoading} onChange={handleChange} />
             </div>
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Criar conta</h1>
-            <p className="text-muted-foreground">Preencha os dados para começar</p>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="nome" className="text-foreground">
-              Nome completo
-            </Label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                id="nome"
-                name="nome"
-                type="text"
-                placeholder="Seu nome completo"
-                value={formData.nome}
-                onChange={handleChange}
-                required
-                className="pl-10 bg-background/50 border-2 border-foreground/40 focus:border-cyan-500 focus:ring-cyan-500/40 transition-all"
-              />
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" placeholder="seu@email.com" required disabled={isLoading} onChange={handleChange} />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-foreground">
-              Email
-            </Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="pl-10 bg-background/50 border-2 border-foreground/40 focus:border-cyan-500 focus:ring-cyan-500/40 transition-all"
-              />
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone</Label>
+              <Input id="phone" type="tel" placeholder="(11) 99999-9999" required disabled={isLoading} onChange={handleChange} />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="senha" className="text-foreground">
-              Senha
-            </Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                id="senha"
-                name="senha"
-                type="password"
-                placeholder="••••••••"
-                value={formData.senha}
-                onChange={handleChange}
-                required
-                minLength={6}
-                className="pl-10 bg-background/50 border-2 border-foreground/40 focus:border-cyan-500 focus:ring-cyan-500/40 transition-all"
-              />
+            <div className="space-y-2">
+              <Label htmlFor="cpf">CPF</Label>
+              <Input id="cpf" placeholder="000.000.000-00" required disabled={isLoading} onChange={handleChange} />
             </div>
-          </div>
-
-
-          <Button
-            type="submit"
-            className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-medium py-6 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-cyan-500/20"
-          >
-            Criar conta
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-foreground/20" />
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input id="password" type="password" required disabled={isLoading} onChange={handleChange} />
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-background text-muted-foreground">ou</span>
+            
+            {error && (
+              <p className="text-sm text-red-500 text-center">{error}</p>
+            )}
+
+            <Button type="submit" disabled={isLoading} className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-medium py-6">
+              {isLoading ? <Loader2 className="animate-spin" /> : "Cadastrar"}
+            </Button>
+            
+            <div className="text-center text-sm">
+              <span className="text-muted-foreground">Já tem uma conta? </span>
+              <Link href="/login" className="text-foreground font-medium hover:text-cyan-400 transition-colors">
+                Faça Login
+              </Link>
             </div>
-          </div>
-
-          <div className="text-center">
-            <span className="text-muted-foreground">Já tem uma conta? </span>
-            <Link href="/login" className="text-foreground font-medium hover:text-cyan-400 transition-colors">
-              Entrar
-            </Link>
-          </div>
-        </form>
-
-        <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Lock className="w-4 h-4" />
-          <span>Conexão segura e criptografada</span>
+          </form>
         </div>
       </div>
     </div>
