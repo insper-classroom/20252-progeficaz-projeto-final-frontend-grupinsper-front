@@ -21,11 +21,6 @@ const menuItems = [
     href: "/pagamentos",
     icon: CreditCard,
   },
-  {
-    name: "Agenda",
-    href: "/agenda",
-    icon: Calendar,
-  },
 ]
 
 export function Sidebar() {
