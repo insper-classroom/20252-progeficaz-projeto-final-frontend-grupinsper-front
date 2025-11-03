@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react" // <-- 1. Importar useMemo
+import { useMemo } from "react" // Mantém apenas useMemo
 import { PieChart, Pie, ResponsiveContainer, Cell } from "recharts"
 
 // --- 2. Definir os tipos de dados (copie do seu dashboard-content.tsx) ---
@@ -49,7 +49,6 @@ const COLORS = [
 
 // 4. Aceitar a prop 'data' com os tipos corretos
 export function CategoryChart({ data: faturas }: { data: Fatura[] }) {
-  
   // 5. Processar os dados reais com useMemo
   const processedData = useMemo(() => {
     if (!faturas || faturas.length === 0) {
@@ -63,8 +62,9 @@ export function CategoryChart({ data: faturas }: { data: Fatura[] }) {
       const todosExtratos = f.extratos?.flat(2) ?? []
       todosExtratos.forEach((extrato) => {
         extrato?.transferencias?.forEach((t) => {
-          // Somar TODAS as transações (receitas e despesas) por categoria usando valor absoluto
-          if (t) {
+          if (!t) return
+          // Apenas despesas: considerar valores negativos (usar valor absoluto)
+          if (t.valor < 0) {
             const category = t.categoria || "Outros"
             const currentTotal = categoryMap.get(category) || 0
             const valueToAdd = Math.abs(t.valor || 0)
@@ -117,7 +117,7 @@ export function CategoryChart({ data: faturas }: { data: Fatura[] }) {
       {/* Legenda dinâmica */}
       <div className="space-y-3 p-4">
         {processedData.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center">Sem dados para exibir.</p>
+          <p className="text-sm text-muted-foreground text-center">Sem despesas para exibir.</p>
         ) : (
           processedData.map((item) => (
             <div

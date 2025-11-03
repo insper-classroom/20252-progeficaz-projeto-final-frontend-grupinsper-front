@@ -383,7 +383,7 @@ export function DashboardContent() {
             <h3 className="text-lg font-semibold text-foreground">
               Distribuição por Categoria
             </h3>
-            <p className="text-sm text-muted-foreground">Transações por categoria</p>
+            <p className="text-sm text-muted-foreground">Despesas por categoria</p>
           </div>
           <CategoryChart data={selectedMonth ? faturasDoMes : []} />
         </Card>
@@ -395,7 +395,7 @@ export function DashboardContent() {
               Distribuição por Tipo
             </h3>
             <p className="text-sm text-muted-foreground">
-              Receita por tipo de transação
+              Transações por tipo de transação
             </p>
           </div>
           <OriginChart data={selectedMonth ? faturasDoMes : []} />

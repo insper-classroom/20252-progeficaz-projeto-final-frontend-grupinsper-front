@@ -1,8 +1,15 @@
 // Em components/origin-chart.tsx
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { PieChart, Pie, ResponsiveContainer, Cell } from "recharts"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 // --- Definir os tipos de dados ---
 type Transferencia = {
@@ -47,42 +54,54 @@ const COLORS = [
 ]
 
 export function OriginChart({ data: faturas }: { data: Fatura[] }) {
-  
+  const [tipo, setTipo] = useState<"receita" | "despesa">("receita")
+
   const processedData = useMemo(() => {
     if (!faturas || faturas.length === 0) {
       return []
     }
-    
     const originMap = new Map<string, number>()
-
     faturas.forEach((f) => {
       const todosExtratos = f.extratos?.flat(2) ?? []
       todosExtratos.forEach((extrato) => {
         extrato?.transferencias?.forEach((t) => {
-          if (t && t.valor > 0) {
-            const origin = t.origem || "Outra Origem" 
-            const currentTotal = originMap.get(origin) || 0
-            originMap.set(origin, currentTotal + t.valor)
+          if (!t) return
+          const isReceita = t.valor > 0
+          if ((tipo === "receita" && isReceita) || (tipo === "despesa" && !isReceita)) {
+            const origin = t.origem || "Outra Origem"
+            originMap.set(origin, (originMap.get(origin) || 0) + Math.abs(t.valor))
           }
         })
       })
     })
-
-    const totalValue = Array.from(originMap.values()).reduce((a, b) => a + b, 0)
-
-    return Array.from(originMap.entries()).map(
-      ([name, value], index) => ({
+    const entries = Array.from(originMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value], index) => ({
         name,
         value,
-        color: COLORS[index % COLORS.length], // <-- Usa o novo array de cores
-        percentage: totalValue === 0 ? 0 : Math.round((value / totalValue) * 100),
-      }),
-    )
-  }, [faturas])
+        color: COLORS[index % COLORS.length],
+      }))
+    const total = entries.reduce((acc, e) => acc + e.value, 0)
+    return entries.map((e) => ({
+      ...e,
+      percentage: total === 0 ? 0 : Math.round((e.value / total) * 100),
+    }))
+  }, [faturas, tipo])
 
   // ... (O resto do seu JSX é o mesmo) ...
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Select value={tipo} onValueChange={(v) => setTipo(v as "receita" | "despesa")}>
+          <SelectTrigger className="w-[160px] h-8 text-xs bg-card border-border">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="receita">Receita</SelectItem>
+            <SelectItem value="despesa">Despesas</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <ResponsiveContainer width="100%" height={200}>
         <PieChart>
           <Pie
@@ -93,13 +112,10 @@ export function OriginChart({ data: faturas }: { data: Fatura[] }) {
             outerRadius={80}
             paddingAngle={2}
             dataKey="value"
+            nameKey="name"
           >
             {processedData.map((entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={entry.color}
-                stroke={entry.color}
-              />
+              <Cell key={`cell-${index}`} fill={entry.color} stroke={entry.color} />
             ))}
           </Pie>
         </PieChart>
