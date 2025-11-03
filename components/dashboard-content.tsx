@@ -173,84 +173,126 @@ export function DashboardContent() {
     ];
   }, [faturas, selectedMonth]);
 
-  // useMemo para processedRecentInvoices
+  // useMemo para processedRecentInvoices - agora mostra extratos recentes
   const processedRecentInvoices = useMemo(() => {
-    if (!faturas || !selectedMonth) return [];
-    // Considera apenas faturas que têm ao menos uma transferência no mês selecionado
-    const faturasComMes = faturas
-      .map((f) => {
-        const todosExtratos = f.extratos?.flat(2) ?? []
-        const transMes = todosExtratos.flatMap((extrato) =>
-          (extrato.transferencias ?? []).filter((t) => isInSelectedMonth(t?.data)),
-        )
-        return { f, transMes }
+    if (!faturas) return [];
+    
+    // Coletar todos os extratos de todas as faturas com suas datas
+    const todosExtratosComData: Array<{
+      extrato: ExtratoItem;
+      fatura: Fatura;
+    }> = []
+    
+    faturas.forEach((f) => {
+      const extratos = f.extratos?.flat(2) ?? []
+      extratos.forEach((extrato) => {
+        if (extrato && extrato.banco) {
+          todosExtratosComData.push({ extrato, fatura: f })
+        }
       })
-      .filter(({ transMes }) => transMes.length > 0)
+    })
+    
+    // Ordenar por data de criação da fatura (mais recentes primeiro) e pegar até 5
+    const sortedExtratos = todosExtratosComData
+      .sort((a, b) => {
+        const dateA = a.fatura.data_criacao ? new Date(a.fatura.data_criacao).getTime() : 0
+        const dateB = b.fatura.data_criacao ? new Date(b.fatura.data_criacao).getTime() : 0
+        return dateB - dateA
+      })
       .slice(0, 5)
 
-    return faturasComMes.map(({ f, transMes }) => {
-      const nomeFatura = f.fatura || f.fatura2 || f.fatura3 || "Fatura";
+    return sortedExtratos.map(({ extrato, fatura }) => {
+      // Nome do banco
+      const nomeBanco = extrato.banco || "Sem banco"
       
-      let dataFatura = "Sem data";
-      if (f.data_criacao) {
-          const dateObj = new Date(f.data_criacao);
-          if (!isNaN(dateObj.getTime())) { // Verifica se a data é válida
-              dataFatura = dateObj.toLocaleDateString("pt-BR", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-              });
-          }
-      }
-
-      const valorTotal = transMes.reduce((acc, t) => acc + t.valor, 0)
-      const statusFatura = "Pendente";
-      return {
-        id: f._id,
-        company: nomeFatura,
-        amount: valorTotal.toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }),
-        date: dataFatura,
-        status: statusFatura as "Pago" | "Pendente" | "Atrasado",
-      };
-    });
-  }, [faturas]);
-
-  // Todas as faturas (para o modal "Ver todos")
-  const processedAllInvoices = useMemo(() => {
-    if (!faturas) return []
-    return faturas.map((f) => {
-      const nomeFatura = f.fatura || f.fatura2 || f.fatura3 || "Fatura";
-      let dataFatura = "Sem data";
-      if (f.data_criacao) {
-        const dateObj = new Date(f.data_criacao);
-        if (!isNaN(dateObj.getTime())) {
-          dataFatura = dateObj.toLocaleDateString("pt-BR", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          });
+      // Mês do extrato: derive a partir das datas das transferências (campo "data")
+      let mesExtrato = "Sem mês"
+      if (extrato.transferencias && extrato.transferencias.length > 0) {
+        const datasValidas = extrato.transferencias
+          .map((t) => parseDateFlexible(t?.data))
+          .filter((d): d is Date => !!d)
+        if (datasValidas.length > 0) {
+          const maisRecente = new Date(Math.max(...datasValidas.map((d) => d.getTime())))
+          mesExtrato = maisRecente.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
         }
       }
-      let valorTotal = 0;
-      const todosExtratos = f.extratos?.flat(2) ?? [];
-      todosExtratos.forEach((extrato) => {
-        extrato?.transferencias?.forEach((t) => {
-          valorTotal += t.valor;
-        });
-      });
-      const statusFatura = "Pendente";
+
+      // Valor total: soma todas as transferências deste extrato
+      let valorTotal = 0
+      extrato.transferencias?.forEach((t) => {
+        valorTotal += t.valor || 0
+      })
+
       return {
-        id: f._id,
-        company: nomeFatura,
+        id: extrato._id,
+        company: nomeBanco,
         amount: valorTotal.toLocaleString("pt-BR", {
           style: "currency",
           currency: "BRL",
         }),
-        date: dataFatura,
-        status: statusFatura as "Pago" | "Pendente" | "Atrasado",
+        month: mesExtrato,
+        numTransferencias: extrato.transferencias?.length || 0,
+      }
+    })
+  }, [faturas]);
+
+  // Todas as faturas (para o modal "Ver todos") - agora mostra todos os extratos
+  const processedAllInvoices = useMemo(() => {
+    if (!faturas) return []
+    
+    // Coletar todos os extratos de todas as faturas
+    const todosExtratosComData: Array<{
+      extrato: ExtratoItem;
+      fatura: Fatura;
+    }> = []
+    
+    faturas.forEach((f) => {
+      const extratos = f.extratos?.flat(2) ?? []
+      extratos.forEach((extrato) => {
+        if (extrato && extrato.banco) {
+          todosExtratosComData.push({ extrato, fatura: f })
+        }
+      })
+    })
+    
+    // Ordenar por data de criação da fatura (mais recentes primeiro)
+    const sortedExtratos = todosExtratosComData.sort((a, b) => {
+      const dateA = a.fatura.data_criacao ? new Date(a.fatura.data_criacao).getTime() : 0
+      const dateB = b.fatura.data_criacao ? new Date(b.fatura.data_criacao).getTime() : 0
+      return dateB - dateA
+    })
+    
+    return sortedExtratos.map(({ extrato, fatura }) => {
+      // Nome do banco
+      const nomeBanco = extrato.banco || "Sem banco"
+      
+      // Mês do extrato: derive a partir das datas das transferências (campo "data")
+      let mesExtrato = "Sem mês"
+      if (extrato.transferencias && extrato.transferencias.length > 0) {
+        const datasValidas = extrato.transferencias
+          .map((t) => parseDateFlexible(t?.data))
+          .filter((d): d is Date => !!d)
+        if (datasValidas.length > 0) {
+          const maisRecente = new Date(Math.max(...datasValidas.map((d) => d.getTime())))
+          mesExtrato = maisRecente.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+        }
+      }
+
+      // Valor total: soma todas as transferências deste extrato
+      let valorTotal = 0
+      extrato.transferencias?.forEach((t) => {
+        valorTotal += t.valor || 0
+      })
+      
+      return {
+        id: extrato._id,
+        company: nomeBanco,
+        amount: valorTotal.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }),
+        month: mesExtrato,
+        numTransferencias: extrato.transferencias?.length || 0,
       };
     });
   }, [faturas])
@@ -408,10 +450,10 @@ export function DashboardContent() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-semibold text-foreground">
-              Faturas Recentes
+              Extratos Recentes
             </h2>
             <p className="text-sm text-muted-foreground">
-              Últimas transações registradas
+              Últimos extratos processados
             </p>
           </div>
           <Dialog>
@@ -422,7 +464,7 @@ export function DashboardContent() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Todas as faturas</DialogTitle>
+                <DialogTitle>Todos os extratos</DialogTitle>
               </DialogHeader>
               <div className="max-h-[70vh] overflow-y-auto pr-2 space-y-4">
                 {processedAllInvoices.length === 0 ? (
@@ -440,28 +482,15 @@ export function DashboardContent() {
                               <span className="text-base font-semibold text-foreground">
                                 {invoice.company}
                               </span>
-                              <span
-                                className={cn(
-                                  "px-3 py-1 rounded-full text-xs font-medium",
-                                  invoice.status === "Pago" &&
-                                    "bg-primary/20 text-primary",
-                                  invoice.status === "Pendente" &&
-                                    "bg-muted text-muted-foreground",
-                                  invoice.status === "Atrasado" &&
-                                    "bg-orange-900/30 text-orange-400",
-                                )}
-                              >
-                                {invoice.status}
-                              </span>
                             </div>
-                            <p className="text-sm text-muted-foreground">ID: {invoice.id}</p>
+                            <p className="text-sm text-muted-foreground">{invoice.month}</p>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-semibold text-foreground">
                             {invoice.amount}
                           </p>
-                          <p className="text-sm text-muted-foreground">{invoice.date}</p>
+                          <p className="text-sm text-muted-foreground">Saldo resultante</p>
                         </div>
                       </div>
                     </Card>
@@ -497,22 +526,9 @@ export function DashboardContent() {
                       <span className="text-base font-semibold text-foreground">
                         {invoice.company}
                       </span>
-                      <span
-                        className={cn(
-                          "px-3 py-1 rounded-full text-xs font-medium",
-                          invoice.status === "Pago" &&
-                            "bg-primary/20 text-primary",
-                          invoice.status === "Pendente" &&
-                            "bg-muted text-muted-foreground",
-                          invoice.status === "Atrasado" &&
-                            "bg-orange-900/30 text-orange-400",
-                        )}
-                      >
-                        {invoice.status}
-                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      ID: {invoice.id}
+                      {invoice.month}
                     </p>
                   </div>
                 </div>
@@ -521,7 +537,7 @@ export function DashboardContent() {
                     {invoice.amount}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {invoice.date}
+                    Saldo resultante
                   </p>
                 </div>
               </div>
