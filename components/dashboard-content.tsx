@@ -3,7 +3,6 @@
 import {
   DollarSign,
   FileText,
-  Clock,
   TrendingUp,
   Download,
 } from "lucide-react"
@@ -12,6 +11,17 @@ import { Button } from "@/components/ui/button"
 import { RevenueChart } from "./revenue-chart"
 import { CategoryChart } from "./category-chart"
 import { OriginChart } from "./origin-chart"
+import { NovaFaturaModal } from "./nova-fatura-modal"
+import { useState, useEffect, useMemo } from "react"
+import { getFaturasDoUsuario } from "@/lib/api"
+import { cn } from "@/lib/utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -19,10 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { NovaFaturaModal } from "./nova-fatura-modal"
-import { useState, useEffect, useMemo } from "react"
-import { getFaturasDoUsuario } from "@/lib/api"
-import { cn } from "@/lib/utils"
 
 // --- DEFINIÇÃO DE TIPOS ---
 type Transferencia = {
@@ -51,6 +57,36 @@ export function DashboardContent() {
   const [faturas, setFaturas] = useState<Fatura[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null) // formato: YYYY-MM
+
+  // Utils de data: aceita "DD/MM/YYYY" ou ISO
+  const parseDateFlexible = (dateStr?: string): Date | null => {
+    if (!dateStr) return null
+    if (dateStr.includes("/")) {
+      const parts = dateStr.split("/")
+      if (parts.length !== 3) return null
+      const day = parseInt(parts[0])
+      const month = parseInt(parts[1]) - 1
+      const year = parseInt(parts[2])
+      const d = new Date(year, month, day)
+      return isNaN(d.getTime()) ? null : d
+    }
+    const d = new Date(dateStr)
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  const toMonthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  const monthLabel = (key: string) => {
+    const [y, m] = key.split("-").map(Number)
+    const d = new Date(y, (m || 1) - 1, 1)
+    return d.toLocaleDateString("pt-BR", { month: "short", year: "numeric" })
+  }
+  const isInSelectedMonth = (dateStr?: string) => {
+    if (!selectedMonth) return false
+    const d = parseDateFlexible(dateStr)
+    if (!d) return false
+    return toMonthKey(d) === selectedMonth
+  }
 
   // useEffect para carregarFaturas
   useEffect(() => {
@@ -70,30 +106,50 @@ export function DashboardContent() {
     carregarFaturas();
   }, []);
 
-  // useMemo para processedMetrics
+  // Meses disponíveis (últimos 6 com dados em transferências)
+  const availableMonths = useMemo(() => {
+    const set = new Set<string>()
+    faturas.forEach((f) => {
+      const todosExtratos = f.extratos?.flat(2) ?? []
+      todosExtratos.forEach((extrato) => {
+        extrato?.transferencias?.forEach((t) => {
+          const d = parseDateFlexible(t?.data)
+          if (d) set.add(toMonthKey(d))
+        })
+      })
+    })
+    // Ordenar DESC e pegar últimos 6
+    const months = Array.from(set)
+      .sort((a, b) => (a > b ? -1 : a < b ? 1 : 0))
+      .slice(0, 6)
+    return months
+  }, [faturas])
+
+  // Define mês selecionado padrão (mais recente) quando carregar
+  useEffect(() => {
+    if (!selectedMonth && availableMonths.length > 0) {
+      setSelectedMonth(availableMonths[0])
+    }
+  }, [availableMonths, selectedMonth])
+
+  // useMemo para processedMetrics (apenas mês selecionado)
   const processedMetrics = useMemo(() => {
-    if (!faturas || faturas.length === 0) {
-      
+    if (!faturas || faturas.length === 0 || !selectedMonth) {
       return [
         { title: "Receita Total", value: "R$ 0,00", change: "...", icon: DollarSign, trend: "neutral" },
-        { title: "Faturas Registradas", value: "0", change: "...", icon: FileText, trend: "neutral" },
-        { title: "Pendentes", value: "0", change: "...", icon: Clock, trend: "neutral" },
         { title: "Despesas Totais", value: "R$ 0,00", change: "...", icon: TrendingUp, trend: "neutral" },
       ];
-      
     }
-    
+    // Somente transações do mês selecionado
     let receitaTotal = 0;
     let despesaTotal = 0;
     faturas.forEach((f) => {
       const todosExtratos = f.extratos?.flat(2) ?? [];
       todosExtratos.forEach((extrato) => {
         extrato?.transferencias?.forEach((t) => {
-          if (t.valor > 0) {
-            receitaTotal += t.valor;
-          } else {
-            despesaTotal += t.valor;
-          }
+          if (!isInSelectedMonth(t?.data)) return;
+          if (t.valor > 0) receitaTotal += t.valor;
+          else despesaTotal += t.valor;
         });
       });
     });
@@ -108,20 +164,6 @@ export function DashboardContent() {
         trend: "up",
       },
       {
-        title: "Faturas Registradas",
-        value: faturas.length.toString(),
-        change: `Total de ${faturas.length} faturas`,
-        icon: FileText,
-        trend: "up",
-      },
-      {
-        title: "Pendentes",
-        value: "N/A",
-        change: "Status não disponível",
-        icon: Clock,
-        trend: "neutral",
-      },
-      {
         title: "Despesas Totais",
         value: formatBRL(despesaTotal),
         change: "Total gasto",
@@ -129,12 +171,24 @@ export function DashboardContent() {
         trend: "down",
       },
     ];
-  }, [faturas]);
+  }, [faturas, selectedMonth]);
 
   // useMemo para processedRecentInvoices
   const processedRecentInvoices = useMemo(() => {
-    if (!faturas) return [];
-    return faturas.slice(0, 5).map((f) => {
+    if (!faturas || !selectedMonth) return [];
+    // Considera apenas faturas que têm ao menos uma transferência no mês selecionado
+    const faturasComMes = faturas
+      .map((f) => {
+        const todosExtratos = f.extratos?.flat(2) ?? []
+        const transMes = todosExtratos.flatMap((extrato) =>
+          (extrato.transferencias ?? []).filter((t) => isInSelectedMonth(t?.data)),
+        )
+        return { f, transMes }
+      })
+      .filter(({ transMes }) => transMes.length > 0)
+      .slice(0, 5)
+
+    return faturasComMes.map(({ f, transMes }) => {
       const nomeFatura = f.fatura || f.fatura2 || f.fatura3 || "Fatura";
       
       let dataFatura = "Sem data";
@@ -149,6 +203,37 @@ export function DashboardContent() {
           }
       }
 
+      const valorTotal = transMes.reduce((acc, t) => acc + t.valor, 0)
+      const statusFatura = "Pendente";
+      return {
+        id: f._id,
+        company: nomeFatura,
+        amount: valorTotal.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }),
+        date: dataFatura,
+        status: statusFatura as "Pago" | "Pendente" | "Atrasado",
+      };
+    });
+  }, [faturas]);
+
+  // Todas as faturas (para o modal "Ver todos")
+  const processedAllInvoices = useMemo(() => {
+    if (!faturas) return []
+    return faturas.map((f) => {
+      const nomeFatura = f.fatura || f.fatura2 || f.fatura3 || "Fatura";
+      let dataFatura = "Sem data";
+      if (f.data_criacao) {
+        const dateObj = new Date(f.data_criacao);
+        if (!isNaN(dateObj.getTime())) {
+          dataFatura = dateObj.toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+        }
+      }
       let valorTotal = 0;
       const todosExtratos = f.extratos?.flat(2) ?? [];
       todosExtratos.forEach((extrato) => {
@@ -168,7 +253,20 @@ export function DashboardContent() {
         status: statusFatura as "Pago" | "Pendente" | "Atrasado",
       };
     });
-  }, [faturas]);
+  }, [faturas])
+
+  // Faturas filtradas para ESTE MÊS (para os gráficos de distribuição)
+  const faturasDoMes = useMemo(() => {
+    if (!faturas || faturas.length === 0 || !selectedMonth) return [] as Fatura[]
+    return faturas.map((f) => {
+      const todosExtratos = (f.extratos?.flat(2) ?? []) as ExtratoItem[]
+      const filtrados = todosExtratos.map((extrato) => ({
+        ...extrato,
+        transferencias: (extrato.transferencias ?? []).filter((t) => isInSelectedMonth(t?.data)),
+      }))
+      return { ...f, extratos: [filtrados] }
+    })
+  }, [faturas, selectedMonth])
 
   return (
     <div className="p-8 space-y-8">
@@ -180,18 +278,20 @@ export function DashboardContent() {
           <p className="text-muted-foreground mt-1">Visão geral do seu negócio</p>
         </div>
         <div className="flex items-center gap-3">
-          <Select defaultValue="este-mes">
-            <SelectTrigger className="w-[180px] bg-card border-border">
-              <SelectValue />
+          <Select value={selectedMonth ?? undefined} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[200px] bg-card border-border">
+              <SelectValue placeholder="Selecione o mês" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="este-mes">Este mês</SelectItem>
-              <SelectItem value="mes-passado">Mês passado</SelectItem>
-              <SelectItem value="ultimos-3">Últimos 3 meses</SelectItem>
+              {availableMonths.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {monthLabel(m)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <NovaFaturaModal>
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">+ Novo Extrato</Button>
+            <Button>+ Novo Extrato</Button>
           </NovaFaturaModal>
         </div>
       </div>
@@ -199,10 +299,10 @@ export function DashboardContent() {
 
 
       {/* ***** 2. SEÇÃO METRICS GRID RESTAURADA ***** */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
         {loading ? (
           // Mostra cartões de "Carregando..."
-          Array.from({ length: 4 }).map((_, index) => (
+          Array.from({ length: 2 }).map((_, index) => (
             <Card
               key={index}
               className="p-6 bg-card border-border animate-pulse"
@@ -262,7 +362,9 @@ export function DashboardContent() {
               <h3 className="text-lg font-semibold text-foreground">
                 Receita vs Despesas
               </h3>
-              <p className="text-sm text-muted-foreground">Últimos 6 meses</p>
+              <p className="text-sm text-muted-foreground">
+                {selectedMonth ? `Mês: ${monthLabel(selectedMonth)}` : "Últimos 6 meses"}
+              </p>
             </div>
             <Button
               variant="ghost"
@@ -272,7 +374,7 @@ export function DashboardContent() {
               <Download className="w-4 h-4" />
             </Button>
           </div>
-          <RevenueChart data={faturas} />
+          <RevenueChart data={faturas} anchorMonthKey={selectedMonth ?? undefined} />
         </Card>
 
         {/* Gráfico de Categoria (Metade da linha) */}
@@ -281,9 +383,9 @@ export function DashboardContent() {
             <h3 className="text-lg font-semibold text-foreground">
               Distribuição por Categoria
             </h3>
-            <p className="text-sm text-muted-foreground">Receita por categoria</p>
+            <p className="text-sm text-muted-foreground">Transações por categoria</p>
           </div>
-          <CategoryChart data={faturas ?? []} />
+          <CategoryChart data={selectedMonth ? faturasDoMes : []} />
         </Card>
 
         {/* NOVO GRÁFICO DE ORIGEM (Outra metade da linha) */}
@@ -296,7 +398,7 @@ export function DashboardContent() {
               Receita por tipo de transação
             </p>
           </div>
-          <OriginChart data={faturas ?? []} />
+          <OriginChart data={selectedMonth ? faturasDoMes : []} />
         </Card>
       </div>
 
@@ -312,10 +414,62 @@ export function DashboardContent() {
               Últimas transações registradas
             </p>
           </div>
-          <Button variant="ghost" className="text-foreground hover:bg-card">
-            <Download className="w-4 h-4 mr-2" />
-            Exportar
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" className="text-foreground hover:bg-card">
+                Ver todos
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Todas as faturas</DialogTitle>
+              </DialogHeader>
+              <div className="max-h-[70vh] overflow-y-auto pr-2 space-y-4">
+                {processedAllInvoices.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Nenhuma fatura encontrada.</div>
+                ) : (
+                  processedAllInvoices.map((invoice) => (
+                    <Card key={invoice.id} className="p-6 bg-card/50 border-border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-lg bg-muted/30 flex items-center justify-center">
+                            <FileText className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-3 mb-1">
+                              <span className="text-base font-semibold text-foreground">
+                                {invoice.company}
+                              </span>
+                              <span
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-xs font-medium",
+                                  invoice.status === "Pago" &&
+                                    "bg-primary/20 text-primary",
+                                  invoice.status === "Pendente" &&
+                                    "bg-muted text-muted-foreground",
+                                  invoice.status === "Atrasado" &&
+                                    "bg-orange-900/30 text-orange-400",
+                                )}
+                              >
+                                {invoice.status}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">ID: {invoice.id}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-semibold text-foreground">
+                            {invoice.amount}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{invoice.date}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="space-y-4">
