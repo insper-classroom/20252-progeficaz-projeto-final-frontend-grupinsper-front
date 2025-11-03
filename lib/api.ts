@@ -82,7 +82,7 @@ export async function getFaturasDoUsuario() {
  */
 export async function uploadExtratos(userId: string, files: FileList) {
   const formData = new FormData();
-  files.forEach((f) => formData.append("file", f));
+  Array.from(files).forEach((f) => formData.append("file", f));
 
   const res = await API.post(`/faturas/usuario/${userId}`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
