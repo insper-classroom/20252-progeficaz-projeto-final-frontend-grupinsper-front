@@ -26,7 +26,16 @@ const menuItems = [
   },
 ]
 
-export function Sidebar() {
+// --- INÍCIO DA MUDANÇA ---
+// 1. Definimos a interface de Props
+interface SidebarProps {
+  onLinkClick: () => void
+}
+
+// 2. Recebemos 'onLinkClick' como prop
+export function Sidebar({ onLinkClick }: SidebarProps) {
+// --- FIM DA MUDANÇA ---
+
   const pathname = usePathname()
   const router = useRouter()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -48,12 +57,18 @@ export function Sidebar() {
       })
     } finally {
       setIsLoggingOut(false)
+      // --- MUDANÇA ---
+      // 3. Chamamos onLinkClick também no logout
+      onLinkClick() 
       router.push("/login")
     }
   }
 
   return (
-    <aside className="w-64 bg-[#0f0f0f] border-r border-border flex flex-col">
+    // 'aside' não precisa mais das classes 'w-64' ou 'bg-[#0f0f0f]' etc,
+    // pois o container pai ('aside' no desktop, 'SheetContent' no mobile) já cuida disso.
+    // Adicionamos 'w-full h-full' para preencher o container onde ele for colocado.
+    <aside className="w-full h-full bg-[#0f0f0f] border-r border-border flex flex-col">
       {/* Logo */}
       <div className="p-6 flex items-center gap-3">
         <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -72,6 +87,9 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              // --- MUDANÇA ---
+              // 4. Adicionamos o 'onClick' para fechar o menu mobile
+              onClick={onLinkClick} 
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm",
                 isActive
@@ -89,7 +107,7 @@ export function Sidebar() {
       {/* Logout */}
       <div className="p-3 border-t border-border">
         <button
-          onClick={handleLogout}
+          onClick={handleLogout} // handleLogout já chama onLinkClick
           disabled={isLoggingOut}
           className={cn(
             "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm w-full",

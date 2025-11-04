@@ -1,10 +1,9 @@
-import { DashboardLayout } from "@/components/dashboard-layout"
+"use client" 
+
 import { DashboardContent } from "@/components/dashboard-content"
 
 export default function DashboardPage() {
   return (
-    <DashboardLayout>
-      <DashboardContent />
-    </DashboardLayout>
+    <DashboardContent />
   )
 }
