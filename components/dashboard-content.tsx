@@ -408,13 +408,6 @@ export function DashboardContent() {
                 {selectedMonth ? `Mês: ${monthLabel(selectedMonth)}` : "Últimos 6 meses"}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
           </div>
           <RevenueChart data={faturas} anchorMonthKey={selectedMonth ?? undefined} />
         </Card>

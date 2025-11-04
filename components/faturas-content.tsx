@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { FileText, Download, TrendingDown } from "lucide-react"
+import { FileText, Download, TrendingDown } from "lucide-react" // FileText já estava aqui
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table"
 import { RevenueChart } from "@/components/revenue-chart"
 import { CategoryChart } from "@/components/category-chart"
-import { BankAnalysis } from "@/components/bank-analysis" 
+import { BankAnalysis } from "@/components/bank-analysis"
 import { getFaturasDoUsuario } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -81,19 +81,32 @@ export function FaturasContent() {
     return faturas.map((f) => {
       let valorTotal = 0
       const todosExtratos = f.extratos?.flat(2) ?? []
+      
+      // *** MODIFICAÇÃO PARA PEGAR O NOME DO BANCO ***
+      // Tenta pegar o primeiro nome de banco encontrado nos extratos
+      let nomeBanco = "Fatura" // Valor padrão
+      if (todosExtratos.length > 0 && todosExtratos[0]?.banco) {
+         nomeBanco = todosExtratos[0].banco
+      } else {
+         // Se não achar banco, usa o nome da fatura
+         nomeBanco = f.fatura || f.fatura2 || f.fatura3 || "Fatura"
+      }
+      
       todosExtratos.forEach((extrato) => {
         extrato?.transferencias?.forEach((t) => {
           valorTotal += t.valor
         })
       })
-      const nomeFatura = f.fatura || f.fatura2 || f.fatura3 || "Fatura"
+      
+      // const nomeFatura = f.fatura || f.fatura2 || f.fatura3 || "Fatura" // Linha antiga
+      
       let dataFatura = "Sem data"
       if (f.data_criacao) {
         const dateObj = new Date(f.data_criacao)
         if (!isNaN(dateObj.getTime())) {
           dataFatura = dateObj.toLocaleDateString("pt-BR", {
             day: "2-digit",
-            month: "short",
+            month: "short", // 'short' (ex: "nov.") ou 'long' (ex: "novembro")
             year: "numeric",
           })
         }
@@ -103,13 +116,14 @@ export function FaturasContent() {
         dataFatura = new Date(f.created_at).toLocaleDateString("pt-BR")
       }
       const statusFatura = f.status ?? "Pendente"
+      
       return {
         id: f._id,
-        company: nomeFatura,
+        company: nomeBanco, // Agora 'company' é o nome do banco ou da fatura
         amount: formatBRL(valorTotal),
         amountRaw: valorTotal,
         date: dataFatura,
-        status: statusFatura,
+        status: statusFatura, // Mantemos o status caso precise no futuro
       }
     })
   }, [faturas])
@@ -144,9 +158,38 @@ export function FaturasContent() {
       .slice(0, 5)
   }, [faturas])
 
+  // Novos cálculos de resumo financeiro (sem mudanças)
+  const financialSummary = useMemo(() => {
+    if (!faturas) return { receita: 0, despesas: 0, saldo: 0, totalTransacoes: 0 }
+    
+    let receita = 0
+    let despesas = 0
+    let totalTransacoes = 0
+    
+    faturas.forEach((f) => {
+      f.extratos?.flat(2).forEach((extrato) => {
+        extrato?.transferencias?.forEach((t) => {
+          totalTransacoes++
+          if (t.valor > 0) {
+            receita += t.valor
+          } else {
+            despesas += Math.abs(t.valor)
+          }
+        })
+      })
+    })
+    
+    return {
+      receita,
+      despesas,
+      saldo: receita - despesas,
+      totalTransacoes
+    }
+  }, [faturas])
+
   return (
     <div className="p-8 space-y-8">
-      {/* NOVO LAYOUT 2x2 GRID */}
+      {/* NOVO LAYOUT 2x2 GRID (sem mudanças) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* CÉLULA 1: Gráfico de Receita vs Despesa */}
@@ -190,7 +233,7 @@ export function FaturasContent() {
               topExpenses.map((item) => (
                 <div key={item.name} className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center"
-                        style={{ color: item.color }}
+                       style={{ color: item.color }}
                   >
                     <TrendingDown className="w-5 h-5" />
                   </div>
@@ -230,7 +273,7 @@ export function FaturasContent() {
       {/* FIM DO NOVO LAYOUT 2x2 */}
 
 
-      {/* Tabela de Faturas */}
+      {/* ***** INÍCIO DA SEÇÃO MODIFICADA (ADEUS TABELA) ***** */}
       <Card className="p-6 bg-card border-border">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -241,76 +284,83 @@ export function FaturasContent() {
               Lista de todas as faturas registradas
             </p>
           </div>
-          
         </div>
         
-        {/* ***** INÍCIO DA CORREÇÃO ***** */}
-        {/* O conteúdo da tabela que estava faltando */}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Fatura</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center">
-                  Carregando faturas...
-                </TableCell>
-              </TableRow>
-            )}
-            {error && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-red-500">
-                  Erro: {error}
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && !error && processedFaturas.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center">
-                  Nenhuma fatura encontrada.
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading &&
-              !error &&
-              processedFaturas.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell>
-                    <div className="font-medium">{invoice.company}</div>
-                    <div className="text-xs text-muted-foreground">
-                      ID: {invoice.id}
+        {/* Nova Lista de Cards */}
+        <div className="space-y-4">
+          {loading && (
+            <p className="text-sm text-muted-foreground text-center">
+              Carregando faturas...
+            </p>
+          )}
+          
+          {error && (
+             <p className="text-sm text-red-500 text-center">
+               Erro: {error}
+             </p>
+          )}
+          
+          {!loading && !error && processedFaturas.length === 0 && (
+             <p className="text-sm text-muted-foreground text-center">
+               Nenhuma fatura encontrada.
+             </p>
+          )}
+
+          {!loading &&
+            !error &&
+            processedFaturas.map((invoice, index) => (
+              <Card
+                key={invoice.id}
+                className={cn(
+                  "p-4 sm:p-6 bg-card/50 hover:bg-card/90 transition-colors",
+                  index === 0 ? "border-primary/20" : "border-border",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  {/* Lado Esquerdo: Ícone, Nome do Banco e Data */}
+                  <div className="flex items-center gap-4">
+                    <div className="hidden sm:flex w-10 h-10 rounded-lg bg-muted/30 items-center justify-center">
+                      <FileText className="w-5 h-5 text-muted-foreground" />
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={invoice.status === "Pago" ? "default" : "secondary"}
-                      className={
-                        invoice.status === "Pago"
-                          ? "bg-primary/20 text-primary hover:bg-primary/30 border-0"
-                          : "bg-muted text-muted-foreground hover:bg-muted border-0"
-                      }
-                    >
-                      {invoice.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{invoice.date}</TableCell>
-                  <TableCell className={cn(
-                    "text-right font-medium",
-                    invoice.amountRaw > 0 ? "text-green-500" : "text-red-500"
-                  )}>
-                    {invoice.amount}
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
-        {/* ***** FIM DA CORREÇÃO ***** */}
+                    <div>
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="text-base font-semibold text-foreground">
+                          {invoice.company} 
+                        </span>
+                        {/* OPCIONAL: Se quiser manter o Badge de status, descomente aqui.
+                          O estilo do badge "Pendente" (muted) é o mesmo da segunda imagem. 
+                        */}
+                        {/* <Badge
+                          variant="secondary"
+                           className="bg-muted text-muted-foreground hover:bg-muted border-0"
+                        >
+                          {invoice.status}
+                        </Badge> */}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {invoice.date}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Lado Direito: Valor e Subtexto */}
+                  <div className="text-right">
+                    <p className={cn(
+                      "text-lg font-semibold",
+                      invoice.amountRaw > 0 ? "text-green-500" : (invoice.amountRaw < 0 ? "text-red-500" : "text-foreground")
+                    )}>
+                      {invoice.amount}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Saldo resultante
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+        </div>
+        {/* ***** FIM DA SEÇÃO MODIFICADA ***** */}
+        
       </Card>
     </div>
   )
