@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react" // <-- 1. Importar useMemo
+import { useMemo } from "react" // Mantém apenas useMemo
 import { PieChart, Pie, ResponsiveContainer, Cell } from "recharts"
 
 // --- 2. Definir os tipos de dados (copie do seu dashboard-content.tsx) ---
@@ -24,16 +24,31 @@ type Fatura = {
 
 // 3. Definir as cores que você usava
 const COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)", // Adicionei mais cores se precisar
+  "#1f77b4", // azul
+  "#ff7f0e", // laranja
+  "#2ca02c", // verde
+  "#d62728", // vermelho
+  "#9467bd", // roxo
+  "#8c564b", // marrom
+  "#e377c2", // rosa
+  "#7f7f7f", // cinza
+  "#bcbd22", // oliva
+  "#17becf", // ciano
+  // extras para girar melhor em conjuntos maiores
+  "#4e79a7",
+  "#f28e2b",
+  "#e15759",
+  "#76b7b2",
+  "#59a14f",
+  "#edc949",
+  "#af7aa1",
+  "#ff9da7",
+  "#9c755f",
+  "#bab0ac",
 ]
 
 // 4. Aceitar a prop 'data' com os tipos corretos
 export function CategoryChart({ data: faturas }: { data: Fatura[] }) {
-  
   // 5. Processar os dados reais com useMemo
   const processedData = useMemo(() => {
     if (!faturas || faturas.length === 0) {
@@ -47,11 +62,13 @@ export function CategoryChart({ data: faturas }: { data: Fatura[] }) {
       const todosExtratos = f.extratos?.flat(2) ?? []
       todosExtratos.forEach((extrato) => {
         extrato?.transferencias?.forEach((t) => {
-          // Somar apenas RECEITAS (valores positivos)
-          if (t && t.valor > 0) {
-            const category = t.categoria || "Outros" // Usar "Outros" se a categoria for nula
+          if (!t) return
+          // Apenas despesas: considerar valores negativos (usar valor absoluto)
+          if (t.valor < 0) {
+            const category = t.categoria || "Outros"
             const currentTotal = categoryMap.get(category) || 0
-            categoryMap.set(category, currentTotal + t.valor)
+            const valueToAdd = Math.abs(t.valor || 0)
+            categoryMap.set(category, currentTotal + valueToAdd)
           }
         })
       })
@@ -100,9 +117,7 @@ export function CategoryChart({ data: faturas }: { data: Fatura[] }) {
       {/* Legenda dinâmica */}
       <div className="space-y-3 p-4">
         {processedData.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center">
-            Sem dados de receita para exibir.
-          </p>
+          <p className="text-sm text-muted-foreground text-center">Sem despesas para exibir.</p>
         ) : (
           processedData.map((item) => (
             <div
